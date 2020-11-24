@@ -10,6 +10,10 @@ const MainNavigator = createStackNavigator({
 	Startup: StartupScreen,
 	Runmap: RunmapScreen,
 	History: HistoryScreen
+}, {
+	defaultNavigationOptions: {
+		headerShown: false
+	}
 });
 
 export default createAppContainer(MainNavigator);

@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 const HistoryScreen = props => {
-	reutrn (
+	return (
 		<View style={styles.screen}>
 			<Text>History Screen</Text>
 		</View>
