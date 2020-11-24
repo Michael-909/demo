@@ -9,7 +9,12 @@ import StartupScreen from '../screens/StartupScreen';
 const MainNavigator = createStackNavigator({
 	Startup: StartupScreen,
 	Runmap: RunmapScreen,
-	History: HistoryScreen
+	History: {
+		screen: HistoryScreen,
+		navigationOptions: {
+			headerShown: true
+		}
+	}
 }, {
 	defaultNavigationOptions: {
 		headerShown: false
