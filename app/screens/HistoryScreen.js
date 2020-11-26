@@ -7,7 +7,7 @@ const RowItem = props => {
 	return (
 		<View style={styles.rowItem}>
 			<Text style={styles.elapsedTime}>{props.elapsedTime} s</Text>
-			<Text style={styles.distance}>{props.distance} m</Text>
+			<Text style={styles.distance}>{parseFloat(props.distance).toFixed(2)} m</Text>
 			<Text style={styles.createdAt}>{props.createdAt}</Text>
 		</View>
 	);
@@ -15,11 +15,12 @@ const RowItem = props => {
 
 const HistoryScreen = props => {
 	const history = useSelector(state => state.bike.history);
-	history.reverse();
+	const datahistory = [...history];
+	datahistory.reverse();
 
 	return (
 		<View style={styles.screen}>
-			<FlatList data={history}
+			<FlatList data={datahistory}
 				keyExtractor={item => item.id.toString()}
 				renderItem={itemData => <RowItem {...itemData.item}/>}
 			/>

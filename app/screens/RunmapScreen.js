@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Button, Dimensions, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Button, Dimensions, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import * as Permissions from 'expo-permissions';
@@ -18,7 +18,8 @@ const calcDistance = (lat1, lon1, lat2, lon2) => {
 	const lt2 = toRad(lat2);
 	const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.sin(dLon/2) * Math.sin(dLon/2) * Math.cos(lt1) * Math.cos(lt2);
 	const c = 2.0 * Math.atan2(Math.sqrt(a), Math.sqrt(1.0-a));
-	return R * c;
+	console.log('answer = ', R*c * 1000.0);
+	return R * c * 1000.0;
 };
 
 const RunmapScreen = props => {
@@ -34,27 +35,32 @@ const RunmapScreen = props => {
 	};
 
 	const dispatch = useDispatch();
+	const [finishLoading, setFinishLoading] = useState(false);
 	const [elapsedTime, setElapsedTime] = useState(0);
 	const [sumDistance, setSumDistance] = useState(0.0);
 	const [currentLocation, setCurrentLocation] = useState({...initialLocation});
 	const [mapRegion, setMapRegion] = useState({...initialLocation, ...delta});
 
-	const verifyPermissions = useCallback(async () => {
+	const verifyPermissions = async () => {
 		const result = await Permissions.askAsync(Permissions.LOCATION);
 		if (result.status !== 'granted') {
 			Alert.alert('Insufficient permissions!', 'You need to grant location permissions to use this app.', [{ text: 'Okay' }]);
 			return false;
 		}
 		return true;
-	}, [mapRegion, currentLocation]);
-	const calcLocation = useCallback(async () => {
+	};
+	const calcLocation = async () => {
 		const hasPermission = await verifyPermissions();
 		if (!hasPermission) return;
 		try {
 			const location = await Location.getCurrentPositionAsync({
-				timeout: 5000
+				timeout: 3000
 			});
-			setSumDistance(sumDistance + calcDistance(currentLocation.latitude, currentLocation.longitude, location.coords.latitude, location.coords.longitude));
+			if(finishLoading) {
+				setSumDistance(sumDistance + calcDistance(currentLocation.latitude, currentLocation.longitude, location.coords.latitude, location.coords.longitude));
+			} else {
+				setFinishLoading(true);
+			}
 			setCurrentLocation({
 				...currentLocation,
 				latitude: location.coords.latitude,
@@ -68,22 +74,29 @@ const RunmapScreen = props => {
 		} catch (err) {
 			Alert.alert('Could not fetch location!', err.message, [{ text: 'Okay' }]);
 		}
-	}, [mapRegion, currentLocation]);
-
-	const runTimer = () => {
-		setElapsedTime(elapsedTime => elapsedTime + 1);
 	};
+	const runTimer = useCallback(() => {
+		console.log('finished loading?', finishLoading, elapsedTime);
+		if(finishLoading) setElapsedTime(elapsedTime => elapsedTime + 1);
+	}, [finishLoading, setFinishLoading]);
 
 	useEffect(() => {
-		console.log('start!!!');
-		// calcLocation();
+		console.log('location start!!!');
+		const locationInterval = setInterval(() => {
+			calcLocation();
+		}, 3000);
+		return () => {
+			clearInterval(locationInterval);
+		};
+	}, [dispatch, finishLoading]);
+
+	useEffect(() => {
+		console.log('time start!!!');
 		const runInterval = setInterval(runTimer, 1000);
-		// const locationInterval = setInterval(calcLocation, 5000);
 		return () => {
 			clearInterval(runInterval);
-			// clearInterval(locationInterval);
 		};
-	}, [dispatch]);
+	}, [dispatch, finishLoading]);
 
 	const recordElapsed = () => {
 		dispatch(BikeAction.addElapsed(elapsedTime, sumDistance));
@@ -94,6 +107,14 @@ const RunmapScreen = props => {
 		props.navigation.goBack();
 		props.navigation.navigate('History');
 	};
+
+	if(!finishLoading) {
+		return (
+			<View style={styles.screen}>
+				<ActivityIndicator size="small" color="black" />
+			</View>
+		);
+	}
 
 	return (
 		<View style={styles.screen}>
@@ -107,15 +128,15 @@ const RunmapScreen = props => {
 				</View>
 				<View style={styles.distance}>
 					<Text style={styles.distanceTh}>Distance:</Text>
-					<Text style={styles.distanceTd}>{parseFloat(sumDistance*1000).toFixed(2)}m</Text>
+					<Text style={styles.distanceTd}>{parseFloat(sumDistance).toFixed(2)}m</Text>
 				</View>
 			</View>
 			<View style={{...styles.currentData, marginTop: 5}}>
-				<View style={styles.time}>
+				<View style={{...styles.time, flexDirection: 'column'}}>
 					<Text style={styles.timeTh}>Latitude:</Text>
 					<Text style={styles.timeTd}>{currentLocation.latitude}</Text>
 				</View>
-				<View style={styles.distance}>
+				<View style={{...styles.distance, flexDirection: 'column'}}>
 					<Text style={styles.distanceTh}>Longitude:</Text>
 					<Text style={styles.distanceTd}>{currentLocation.longitude}</Text>
 				</View>
@@ -152,7 +173,7 @@ const styles = StyleSheet.create({
 		flexDirection: 'row'
 	},
 	distance: {
-		flexDirection: 'row'
+		flexDirection: 'row',
 	},
 	timeTh: {
 		paddingHorizontal: 5,
@@ -164,7 +185,7 @@ const styles = StyleSheet.create({
 	},
 	distanceTh: {
 		paddingHorizontal: 5,
-		backgroundColor: '#D7BDE2'
+		backgroundColor: '#D7BDE2',
 	},
 	distanceTd: {
 		paddingHorizontal: 5,
