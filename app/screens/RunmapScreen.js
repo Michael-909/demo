@@ -6,20 +6,20 @@ import * as Permissions from 'expo-permissions';
 import { useDispatch } from 'react-redux';
 import * as BikeAction from '../redux/actions/bike';
 
-// const toRad = v => {
-// 	return v * Math.PI / 180.0;
-// };
+const toRad = v => {
+	return v * Math.PI / 180.0;
+};
 
-// const calcDistance = (lat1, lon1, lat2, lon2) => {
-// 	const R = 6317;
-// 	const dLat = toRad(lat2 - lat1);
-// 	const dLon = toRad(lon2 - lon1);
-// 	const lt1 = toRad(lat1);
-// 	const lt2 = toRad(lat2);
-// 	const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.sin(dLon/2) * Math.sin(dLon/2) * Math.cos(lt1) * Math.cos(lt2);
-// 	const c = 2.0 * Math.atan2(Math.sqrt(a), Math.sqrt(1.0-a));
-// 	return R * c;
-// };
+const calcDistance = (lat1, lon1, lat2, lon2) => {
+	const R = 6317;
+	const dLat = toRad(lat2 - lat1);
+	const dLon = toRad(lon2 - lon1);
+	const lt1 = toRad(lat1);
+	const lt2 = toRad(lat2);
+	const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.sin(dLon/2) * Math.sin(dLon/2) * Math.cos(lt1) * Math.cos(lt2);
+	const c = 2.0 * Math.atan2(Math.sqrt(a), Math.sqrt(1.0-a));
+	return R * c;
+};
 
 const RunmapScreen = props => {
 	const window = Dimensions.get('window');
@@ -40,71 +40,72 @@ const RunmapScreen = props => {
 	const [mapRegion, setMapRegion] = useState({...initialLocation, ...delta});
 	const [flag, setFlag] = useState(0);
 
-	// const verifyPermissions = useCallback(async () => {
-	// 	const result = await Permissions.askAsync(Permissions.LOCATION);
-	// 	if (result.status !== 'granted') {
-	// 		Alert.alert('Insufficient permissions!', 'You need to grant location permissions to use this app.', [{ text: 'Okay' }]);
-	// 		return false;
-	// 	}
-	// 	return true;
-	// }, [mapRegion, currentLocation]);
-	// const calcLocation = useCallback(async () => {
-	// 	const hasPermission = await verifyPermissions();
-	// 	if (!hasPermission) return;
-	// 	try {
-	// 		const location = await Location.getCurrentPositionAsync({
-	// 			timeout: 5000
-	// 		});
-	// 		setSumDistance(sumDistance + calcDistance(currentLocation.latitude, currentLocation.longitude, location.coords.latitude, location.coords.longitude));
-	// 		setCurrentLocation({
-	// 			...currentLocation,
-	// 			latitude: location.coords.latitude,
-	// 			longitude: location.coords.longitude
-	// 		});
-	// 		setMapRegion({
-	// 			...mapRegion,
-	// 			latitude: location.coords.latitude,
-	// 			longitude: location.coords.longitude
-	// 		});
-	// 		setFlag(flag + 1);
-	// 		console.log('flag = ', flag);
-	// 	} catch (err) {
-	// 		Alert.alert('Could not fetch location!', err.message, [{ text: 'Okay' }]);
-	// 	}
-	// }, [mapRegion, currentLocation]);
+	const verifyPermissions = useCallback(async () => {
+		const result = await Permissions.askAsync(Permissions.LOCATION);
+		if (result.status !== 'granted') {
+			Alert.alert('Insufficient permissions!', 'You need to grant location permissions to use this app.', [{ text: 'Okay' }]);
+			return false;
+		}
+		return true;
+	}, [mapRegion, currentLocation]);
+	const calcLocation = useCallback(async () => {
+		const hasPermission = await verifyPermissions();
+		if (!hasPermission) return;
+		try {
+			const location = await Location.getCurrentPositionAsync({
+				timeout: 5000
+			});
+			setSumDistance(sumDistance + calcDistance(currentLocation.latitude, currentLocation.longitude, location.coords.latitude, location.coords.longitude));
+			setCurrentLocation({
+				...currentLocation,
+				latitude: location.coords.latitude,
+				longitude: location.coords.longitude
+			});
+			setMapRegion({
+				...mapRegion,
+				latitude: location.coords.latitude,
+				longitude: location.coords.longitude
+			});
+			setFlag(flag + 1);
+			console.log('flag = ', flag);
+		} catch (err) {
+			Alert.alert('Could not fetch location!', err.message, [{ text: 'Okay' }]);
+		}
+	}, [mapRegion, currentLocation]);
 
-	// const runTimer = useCallback(() => {
-	// 	setElapsedTime(elapsedTime + 1);
-	// }, [elapsedTime, setElapsedTime]);
+	const runTimer = useCallback(() => {
+		setElapsedTime(elapsedTime + 1);
+	}, [elapsedTime, setElapsedTime]);
 
-	// let locationInterval, runInterval;
+	let locationInterval, runInterval;
 
-	// const runLocationMap = useCallback(() => {
-	// 	console.log('123123');
-	// 	calcLocation();
-	// 	locationInterval = setInterval(calcLocation, 5000);
-	// 	runInterval = setInterval(runTimer, 1000);
-	// }, [calcLocation, runTimer]);
+	const runLocationMap = useCallback(() => {
+		console.log('123123');
+		calcLocation();
+		locationInterval = setInterval(calcLocation, 5000);
+		runInterval = setInterval(runTimer, 1000);
+	}, [calcLocation, runTimer]);
 
-	// useEffect(() => {
-		// const willFocusSub = props.navigation.addListener(
-		// 	'willFocus',
-		// 	runLocationMap
-		// );
-		// return () => {
-		// 	willFocusSub.remove();
-		// };
-	// }, [currentLocation, runLocationMap]);
+	useEffect(() => {
+		const willFocusSub = props.navigation.addListener(
+			'willFocus',
+			runLocationMap
+		);
+		return () => {
+			willFocusSub.remove();
+		};
+	}, [currentLocation, runLocationMap]);
 
 	const recordElapsed = () => {
-		// clearInterval(locationInterval);
-		// clearInterval(runInterval);
-		// dispatch(BikeAction.addElapsed(elapsedTime, sumDistance));
+		clearInterval(locationInterval);
+		clearInterval(runInterval);
+		dispatch(BikeAction.addElapsed(elapsedTime, sumDistance));
 	};
 
 	const stopRunmap = () => {
 		recordElapsed();
 		props.navigation.goBack();
+		props.navigation.navigate('History');
 	};
 
 	return (

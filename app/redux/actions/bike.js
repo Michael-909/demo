@@ -16,7 +16,7 @@ export const addElapsed = (elapsedTime, elapsedDistance) => {
 		id: Date.now(),
 		elapsedTime: elapsedTime,
 		distance: elapsedDistance,
-		createdAt: new Date().toISOString()
+		createdAt: new Date().toLocaleString()
 	};
 	return {
 		type: ADD_ELAPSED,

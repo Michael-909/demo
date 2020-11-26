@@ -15,6 +15,7 @@ const RowItem = props => {
 
 const HistoryScreen = props => {
 	const history = useSelector(state => state.bike.history);
+	history.reverse();
 
 	return (
 		<View style={styles.screen}>
