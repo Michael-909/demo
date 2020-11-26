@@ -38,7 +38,6 @@ const RunmapScreen = props => {
 	const [sumDistance, setSumDistance] = useState(0.0);
 	const [currentLocation, setCurrentLocation] = useState({...initialLocation});
 	const [mapRegion, setMapRegion] = useState({...initialLocation, ...delta});
-	const [flag, setFlag] = useState(0);
 
 	const verifyPermissions = useCallback(async () => {
 		const result = await Permissions.askAsync(Permissions.LOCATION);
@@ -66,39 +65,27 @@ const RunmapScreen = props => {
 				latitude: location.coords.latitude,
 				longitude: location.coords.longitude
 			});
-			setFlag(flag + 1);
-			console.log('flag = ', flag);
 		} catch (err) {
 			Alert.alert('Could not fetch location!', err.message, [{ text: 'Okay' }]);
 		}
 	}, [mapRegion, currentLocation]);
 
-	const runTimer = useCallback(() => {
-		setElapsedTime(elapsedTime + 1);
-	}, [elapsedTime, setElapsedTime]);
-
-	let locationInterval, runInterval;
-
-	const runLocationMap = useCallback(() => {
-		console.log('123123');
-		calcLocation();
-		locationInterval = setInterval(calcLocation, 5000);
-		runInterval = setInterval(runTimer, 1000);
-	}, [calcLocation, runTimer]);
+	const runTimer = () => {
+		setElapsedTime(elapsedTime => elapsedTime + 1);
+	};
 
 	useEffect(() => {
-		const willFocusSub = props.navigation.addListener(
-			'willFocus',
-			runLocationMap
-		);
+		console.log('start!!!');
+		// calcLocation();
+		const runInterval = setInterval(runTimer, 1000);
+		// const locationInterval = setInterval(calcLocation, 5000);
 		return () => {
-			willFocusSub.remove();
+			clearInterval(runInterval);
+			// clearInterval(locationInterval);
 		};
-	}, [currentLocation, runLocationMap]);
+	}, [dispatch]);
 
 	const recordElapsed = () => {
-		clearInterval(locationInterval);
-		clearInterval(runInterval);
 		dispatch(BikeAction.addElapsed(elapsedTime, sumDistance));
 	};
 
@@ -116,11 +103,11 @@ const RunmapScreen = props => {
 			<View style={styles.currentData}>
 				<View style={styles.time}>
 					<Text style={styles.timeTh}>Elapsed Time:</Text>
-					<Text style={styles.timeTd}>10s</Text>
+					<Text style={styles.timeTd}>{elapsedTime}s</Text>
 				</View>
 				<View style={styles.distance}>
 					<Text style={styles.distanceTh}>Distance:</Text>
-					<Text style={styles.distanceTd}>10m</Text>
+					<Text style={styles.distanceTd}>{parseFloat(sumDistance*1000).toFixed(2)}m</Text>
 				</View>
 			</View>
 			<View style={{...styles.currentData, marginTop: 5}}>
