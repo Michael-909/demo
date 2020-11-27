@@ -1,33 +1,29 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Button, Dimensions, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
-import * as Location from 'expo-location';
-import * as Permissions from 'expo-permissions';
 import { useDispatch } from 'react-redux';
 import * as BikeAction from '../redux/actions/bike';
 
-const toRad = v => {
-	return v * Math.PI / 180.0;
+const getDistanceFromLatLonInKm = (lat1,lon1,lat2,lon2) => {
+	const R = 6371;
+	const dLat = deg2rad(lat2-lat1);
+	const dLon = deg2rad(lon2-lon1); 
+	const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon/2) * Math.sin(dLon/2);
+	const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+	console.log('d = ', lat1, lon1, lat2, lon2, R * c * 1000);
+	return R * c * 1000;
 };
 
-const calcDistance = (lat1, lon1, lat2, lon2) => {
-	const R = 6317;
-	const dLat = toRad(lat2 - lat1);
-	const dLon = toRad(lon2 - lon1);
-	const lt1 = toRad(lat1);
-	const lt2 = toRad(lat2);
-	const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.sin(dLon/2) * Math.sin(dLon/2) * Math.cos(lt1) * Math.cos(lt2);
-	const c = 2.0 * Math.atan2(Math.sqrt(a), Math.sqrt(1.0-a));
-	console.log('answer = ', R*c * 1000.0);
-	return R * c * 1000.0;
+const deg2rad = (deg) => {
+	return deg * (Math.PI/180);
 };
 
 const RunmapScreen = props => {
 	const window = Dimensions.get('window');
 	const { width, height } = window;
 	const delta = {
-		latitudeDelta: 0.2,
-		longitudeDelta: 0.2 * width / height
+		latitudeDelta: 0.001,
+		longitudeDelta: 0.001 * width / height
 	};
 	const initialLocation = {
 		latitude: 37.78,
@@ -37,69 +33,63 @@ const RunmapScreen = props => {
 	const dispatch = useDispatch();
 	const [finishLoading, setFinishLoading] = useState(false);
 	const [elapsedTime, setElapsedTime] = useState(0);
-	const [sumDistance, setSumDistance] = useState(0.0);
-	const [currentLocation, setCurrentLocation] = useState({...initialLocation});
+
+	const [location, setLocation] = useState({
+		...initialLocation,
+		distanceTravelled: 0,
+		prevLatLng: {}
+	});
 	const [mapRegion, setMapRegion] = useState({...initialLocation, ...delta});
+	const [currentLocation, setCurrentLocation] = useState(initialLocation);
 
-	const verifyPermissions = async () => {
-		const result = await Permissions.askAsync(Permissions.LOCATION);
-		if (result.status !== 'granted') {
-			Alert.alert('Insufficient permissions!', 'You need to grant location permissions to use this app.', [{ text: 'Okay' }]);
-			return false;
-		}
-		return true;
-	};
-	const calcLocation = async () => {
-		const hasPermission = await verifyPermissions();
-		if (!hasPermission) return;
-		try {
-			const location = await Location.getCurrentPositionAsync({
-				timeout: 3000
-			});
-			if(finishLoading) {
-				setSumDistance(sumDistance + calcDistance(currentLocation.latitude, currentLocation.longitude, location.coords.latitude, location.coords.longitude));
-			} else {
-				setFinishLoading(true);
-			}
-			setCurrentLocation({
-				...currentLocation,
-				latitude: location.coords.latitude,
-				longitude: location.coords.longitude
-			});
-			setMapRegion({
-				...mapRegion,
-				latitude: location.coords.latitude,
-				longitude: location.coords.longitude
-			});
-		} catch (err) {
-			Alert.alert('Could not fetch location!', err.message, [{ text: 'Okay' }]);
-		}
-	};
-	const runTimer = useCallback(() => {
-		console.log('finished loading?', finishLoading, elapsedTime);
-		if(finishLoading) setElapsedTime(elapsedTime => elapsedTime + 1);
-	}, [finishLoading, setFinishLoading]);
+	const calcDistance = useCallback(newLatLng => {
+		const { prevLatLng } = location;
+		if(!finishLoading) setFinishLoading(true);
+		if(!prevLatLng.latitude || !prevLatLng.longitude) return 0;
+		return getDistanceFromLatLonInKm(prevLatLng.latitude, prevLatLng.longitude, newLatLng.latitude, newLatLng.longitude);
+	}, [finishLoading, location]);
+
+	const travelStart = useCallback(() => {
+		navigator.geolocation.watchPosition(
+			position => {
+				const { distanceTravelled } = location;
+				const { latitude, longitude } = position.coords;
+				const newCoordinate = { latitude, longitude };
+				const dist = calcDistance(newCoordinate);
+				setLocation({
+					latitude,
+					longitude,
+					distanceTravelled: distanceTravelled + (dist > 1.5 ? dist : 0),
+					prevLatLng: newCoordinate
+				});
+				setCurrentLocation({...currentLocation, latitude, longitude});
+				setMapRegion({...mapRegion, latitude, longitude});
+			},
+			error => Alert.alert('Insufficient permissions!', error.message, [{ text: 'Okay' }]),
+			{ enableHighAccuracy: true, timeout: 20000, maximumAge: 1000 }
+		);
+	}, [dispatch, location, currentLocation, finishLoading, mapRegion]);
 
 	useEffect(() => {
-		console.log('location start!!!');
-		const locationInterval = setInterval(() => {
-			calcLocation();
-		}, 3000);
+		const travelTimer = setInterval(travelStart, 3000);
 		return () => {
-			clearInterval(locationInterval);
+			clearInterval(travelTimer);
 		};
-	}, [dispatch, finishLoading]);
+	}, [dispatch, finishLoading, location]);
+
+	const runTimer = useCallback(() => {
+		if(finishLoading) setElapsedTime(elapsedTime => elapsedTime + 1);
+	}, [finishLoading, elapsedTime]);
 
 	useEffect(() => {
-		console.log('time start!!!');
 		const runInterval = setInterval(runTimer, 1000);
 		return () => {
 			clearInterval(runInterval);
 		};
-	}, [dispatch, finishLoading]);
+	}, [dispatch, finishLoading, elapsedTime]);
 
 	const recordElapsed = () => {
-		dispatch(BikeAction.addElapsed(elapsedTime, sumDistance));
+		dispatch(BikeAction.addElapsed(elapsedTime, location.distanceTravelled));
 	};
 
 	const stopRunmap = () => {
@@ -128,7 +118,7 @@ const RunmapScreen = props => {
 				</View>
 				<View style={styles.distance}>
 					<Text style={styles.distanceTh}>Distance:</Text>
-					<Text style={styles.distanceTd}>{parseFloat(sumDistance).toFixed(2)}m</Text>
+					<Text style={styles.distanceTd}>{parseFloat(location.distanceTravelled).toFixed(2)}m</Text>
 				</View>
 			</View>
 			<View style={{...styles.currentData, marginTop: 5}}>
